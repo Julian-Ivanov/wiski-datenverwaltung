@@ -1,6 +1,7 @@
 from azure.storage.blob import BlobServiceClient
 import hashlib
 import json
+import streamlit as st
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 import re
@@ -10,21 +11,17 @@ from docx import Document
 from pptx import Presentation
 import openpyxl
 from io import BytesIO
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 # Azure Blob Storage Configuration
-connection_string = os.getenv("AZURE_BLOB_CONNECTION_STRING")
-container_name = os.getenv("AZURE_BLOB_CONTAINER_NAME")
+connection_string = st.secrets["AZURE_BLOB_CONNECTION_STRING"]
+container_name = st.secrets["AZURE_BLOB_CONTAINER_NAME"]
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 container_client = blob_service_client.get_container_client(container_name)
 
 # Azure Search Configuration
-search_service_name = os.getenv("AZURE_SEARCH_SERVICE_NAME")
-index_name = os.getenv("AZURE_SEARCH_INDEX_NAME")
-admin_key = os.getenv("AZURE_SEARCH_ADMIN_KEY")
+search_service_name = st.secrets["AZURE_SEARCH_SERVICE_NAME"]
+index_name = st.secrets["AZURE_SEARCH_INDEX_NAME"]
+admin_key = st.secrets["AZURE_SEARCH_ADMIN_KEY"]
 endpoint = f"https://{search_service_name}.search.windows.net"
 search_client = SearchClient(endpoint, index_name, AzureKeyCredential(admin_key))
 

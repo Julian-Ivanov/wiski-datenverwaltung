@@ -1,14 +1,14 @@
 import streamlit as st
 from azure.storage.blob import BlobServiceClient
 from update_index import main as update_index  # Ersetze dies mit deinem tatsächlichen Indexierungs-Logik
-from dotenv import load_dotenv
+import os
 
-# Load environment variables from .env file
-load_dotenv()
+# Streamlit Web-App
+st.set_page_config(page_title="Wiski-Datenverwaltung", layout="wide")
 
 # Azure Blob Storage Configuration
-connection_string = os.getenv("AZURE_BLOB_CONNECTION_STRING")
-container_name = os.getenv("AZURE_BLOB_CONTAINER_NAME")
+connection_string = st.secrets["AZURE_BLOB_CONNECTION_STRING"]
+container_name = st.secrets["AZURE_BLOB_CONTAINER_NAME"]
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 container_client = blob_service_client.get_container_client(container_name)
 
@@ -37,9 +37,6 @@ def delete_file(file_name):
     update_index()
     st.success("🤖 Wiski wurde erfolgreich aktualisiert!")
 
-
-# Streamlit Web-App
-st.set_page_config(page_title="Wiski-Datenverwaltung", layout="wide")
 
 st.title("🤖 Wiski-Datenverwaltung")
 st.markdown(
