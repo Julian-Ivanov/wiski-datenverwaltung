@@ -1,10 +1,34 @@
 import streamlit as st
 from azure.storage.blob import BlobServiceClient
-from update_index import main as update_index  # Ersetze dies mit deinem tatsächlichen Indexierungs-Logik
+from update_index import main as update_index  # Replace with your actual indexing logic
 import os
 
 # Streamlit Web-App
 st.set_page_config(page_title="Wiski-Datenverwaltung", layout="wide")
+
+# Authentication
+def authenticate(username, password):
+    # Replace with your desired username and password
+    valid_username = st.secrets["APP_USERNAME"]
+    valid_password = st.secrets["APP_PASSWORD"]
+    return username == valid_username and password == valid_password
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    st.title("🔒 Wiski-Datenverwaltung Login")
+    st.write("Bitte melde dich an, um fortzufahren.")
+    username = st.text_input("Benutzername")
+    password = st.text_input("Passwort", type="password")
+    if st.button("Anmelden"):
+        if authenticate(username, password):
+            st.success("✅ Anmeldung erfolgreich!")
+            st.session_state["authenticated"] = True
+            st.experimental_rerun()
+        else:
+            st.error("❌ Ungültiger Benutzername oder Passwort.")
+    st.stop()
 
 # Azure Blob Storage Configuration
 connection_string = st.secrets["AZURE_BLOB_CONNECTION_STRING"]
@@ -14,16 +38,16 @@ container_client = blob_service_client.get_container_client(container_name)
 
 
 def list_files_with_metadata():
-    """Listet alle Dateien im Blob-Speicher mit ihrem Änderungsdatum auf."""
+    """List all files in Blob Storage with their last modified date."""
     blobs = container_client.list_blobs()
     files = [{"name": blob.name, "last_modified": blob.last_modified} for blob in blobs]
-    # Dateien nach Änderungsdatum absteigend sortieren
+    # Sort files by last modified date in descending order
     files.sort(key=lambda x: x["last_modified"], reverse=True)
     return files
 
 
 def upload_file(file, file_name):
-    """Lädt eine Datei in den Blob-Speicher hoch und aktualisiert den Index."""
+    """Upload a file to Blob Storage and update the index."""
     container_client.upload_blob(file_name, file, overwrite=True)
     st.success(f"✅ {file_name} wurde erfolgreich hochgeladen! Der Index wird jetzt aktualisiert...")
     update_index()
@@ -31,13 +55,14 @@ def upload_file(file, file_name):
 
 
 def delete_file(file_name):
-    """Löscht eine Datei aus dem Blob-Speicher und aktualisiert den Index."""
+    """Delete a file from Blob Storage and update the index."""
     container_client.delete_blob(file_name)
     st.success(f"❌ {file_name} wurde erfolgreich gelöscht! Wiski wird jetzt aktualisiert...")
     update_index()
     st.success("🤖 Wiski wurde erfolgreich aktualisiert!")
 
 
+# Main Application
 st.title("🤖 Wiski-Datenverwaltung")
 st.markdown(
     """
@@ -46,36 +71,28 @@ st.markdown(
     """
 )
 
-# Tabs für bessere Organisation
+# Tabs for better organization
 tab1, tab2 = st.tabs(["📂 Aktuelle Dateien", "📤 Dateien hochladen"])
 
-# Tab 1: Aktuelle Dateien anzeigen
+# Tab 1: Display Current Files
 with tab1:
     st.subheader("📂 Aktuelle Dateien")
-    # Fetch files with metadata
     files_with_metadata = list_files_with_metadata()
-    total_files = len(files_with_metadata)  # Total number of files
+    total_files = len(files_with_metadata)
 
-    st.write(f"Hier siehst du alle Dateien, auf die Wiski aktuell Zugriff hat. Aktuell sind es **{total_files}** Dateien. Wenn du Dateien löschen möchtest, wähle die entsprechenden Dateien aus und klicke auf den Button.")
+    st.write(f"Hier siehst du alle Dateien, auf die Wiski aktuell Zugriff hat. Aktuell sind es **{total_files}** Dateien.")
 
     if files_with_metadata:
-        # Container to store selected files
         selected_files = []
-
-        # Add the delete button above the file list
         delete_button = st.button("❌ Lösche ausgewählte Dateien")
 
-        # Create a checkbox for each file
         for file in files_with_metadata:
             col1, col2 = st.columns([6, 3])
-            # File name and checkbox
             selected = col1.checkbox(f"📄 {file['name']}", key=file["name"])
             if selected:
                 selected_files.append(file["name"])
-            # File last modified date
             col2.write(f"🕒 {file['last_modified'].strftime('%d.%m.%Y %H:%M')}")
 
-        # Handle file deletion when button is clicked
         if delete_button and selected_files:
             for file_name in selected_files:
                 delete_file(file_name)
@@ -85,13 +102,9 @@ with tab1:
     else:
         st.write("🚫 Es sind keine Dateien im Datenordner vorhanden.")
 
-# Tab 2: Dateien hochladen
+# Tab 2: Upload Files
 with tab2:
     st.subheader("📤 Dateien hochladen")
-    st.write(
-        "Lade hier neue Dateien für Wiski hoch. Sobald die Dateien hochgeladen sind, "
-        "werden sie automatisch Wiski zur Verfügung gestellt."
-    )
     st.info("💡 Unterstützte Dateitypen: PDF, TXT, DOCX, PPTX, XLSX, PNG, JSON, HTML, XML.")
 
     uploaded_files = st.file_uploader(
