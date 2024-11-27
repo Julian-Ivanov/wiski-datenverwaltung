@@ -1,0 +1,11 @@
+azure-storage-blob
+azure-search-documents
+PyPDF2
+python-docx
+python-pptx
+openpyxl
+json5
+beautifulsoup4
+lxml
+python-dotenv
+streamlit

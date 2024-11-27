@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#40e0d0"  # Keep the bright red for accents like buttons and highlights
+backgroundColor = "#a3002e"  # Darker red for the main background
+secondaryBackgroundColor = "#9c3656"  # Matches the background
+textColor = "#ffffff"  # White text for good contrast
+font = "sans serif"
