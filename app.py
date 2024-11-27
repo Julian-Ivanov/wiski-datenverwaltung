@@ -3,32 +3,33 @@ from azure.storage.blob import BlobServiceClient
 from update_index import main as update_index  # Replace with your actual indexing logic
 import os
 
-# Streamlit Web-App
+# Streamlit Web-App Configuration
 st.set_page_config(page_title="Wiski-Datenverwaltung", layout="wide")
 
-# Authentication
+# Authentication Function
 def authenticate(username, password):
-    # Replace with your desired username and password
     valid_username = st.secrets["APP_USERNAME"]
     valid_password = st.secrets["APP_PASSWORD"]
     return username == valid_username and password == valid_password
 
+# Initialize Authentication State
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
+# Show Login Screen if Not Authenticated
 if not st.session_state["authenticated"]:
-    st.title("🔒 Wiski-Datenverwaltung Login")
-    st.write("Bitte melde dich an, um fortzufahren.")
-    username = st.text_input("Benutzername")
-    password = st.text_input("Passwort", type="password")
-    if st.button("Anmelden"):
-        if authenticate(username, password):
-            st.success("✅ Anmeldung erfolgreich!")
-            st.session_state["authenticated"] = True
-            st.experimental_rerun()
-        else:
-            st.error("❌ Ungültiger Benutzername oder Passwort.")
-    st.stop()
+    with st.container():
+        st.title("🔒 Wiski-Datenverwaltung Login")
+        st.write("Bitte melde dich an, um fortzufahren.")
+        username = st.text_input("Benutzername")
+        password = st.text_input("Passwort", type="password")
+        if st.button("Anmelden"):
+            if authenticate(username, password):
+                st.session_state["authenticated"] = True
+                st.rerun()  # Refresh the app to show the main content
+            else:
+                st.error("❌ Ungültiger Benutzername oder Passwort.")
+    st.stop()  # Stop further execution if not authenticated
 
 # Azure Blob Storage Configuration
 connection_string = st.secrets["AZURE_BLOB_CONNECTION_STRING"]
@@ -36,15 +37,12 @@ container_name = st.secrets["AZURE_BLOB_CONTAINER_NAME"]
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 container_client = blob_service_client.get_container_client(container_name)
 
-
 def list_files_with_metadata():
     """List all files in Blob Storage with their last modified date."""
     blobs = container_client.list_blobs()
     files = [{"name": blob.name, "last_modified": blob.last_modified} for blob in blobs]
-    # Sort files by last modified date in descending order
     files.sort(key=lambda x: x["last_modified"], reverse=True)
     return files
-
 
 def upload_file(file, file_name):
     """Upload a file to Blob Storage and update the index."""
@@ -53,14 +51,12 @@ def upload_file(file, file_name):
     update_index()
     st.success("🤖 Wiski wurde erfolgreich aktualisiert!")
 
-
 def delete_file(file_name):
     """Delete a file from Blob Storage and update the index."""
     container_client.delete_blob(file_name)
     st.success(f"❌ {file_name} wurde erfolgreich gelöscht! Wiski wird jetzt aktualisiert...")
     update_index()
     st.success("🤖 Wiski wurde erfolgreich aktualisiert!")
-
 
 # Main Application
 st.title("🤖 Wiski-Datenverwaltung")
@@ -71,7 +67,7 @@ st.markdown(
     """
 )
 
-# Tabs for better organization
+# Tabs for Better Organization
 tab1, tab2 = st.tabs(["📂 Aktuelle Dateien", "📤 Dateien hochladen"])
 
 # Tab 1: Display Current Files
