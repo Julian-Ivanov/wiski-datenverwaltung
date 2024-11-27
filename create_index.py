@@ -6,7 +6,7 @@ from promptflow.rag import get_langchain_retriever_from_index
 # Azure Search parameters
 search_service_name = "ai-search-wiski"
 admin_key = "Zu8iq9PKbNIuSpiroRCrmwWZK7hoE1hMNIrGB6ATinAzSeBBG0KC"
-index_name = "test-index-1"
+index_name = "wiski-index"
 
 # Azure OpenAI parameters
 openai_api_key = "2hkRYN8YdY0FDaETo7DTDqjQcXDGoCltTpZHjczVqz6hsI9YnZZwJQQJ99AKACfhMk5XJ3w3AAABACOG2IL9"
@@ -35,7 +35,7 @@ def create_index():
             ),
             input_source=LocalSource(input_data="./data"),  # Path to your data folder
             index_config=AzureAISearchConfig(
-                ai_search_index_name=index_name + "-store"  # Name for the index in Azure AI Search
+                ai_search_index_name=index_name  # Name for the index in Azure AI Search
             ),
             tokens_per_chunk=800,  # Optional: maximum tokens per chunk
             token_overlap_across_chunks=0  # Optional: token overlap
