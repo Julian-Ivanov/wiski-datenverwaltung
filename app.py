@@ -46,17 +46,25 @@ def list_files_with_metadata():
 
 def upload_file(file, file_name):
     """Upload a file to Blob Storage and update the index."""
-    container_client.upload_blob(file_name, file, overwrite=True)
-    st.success(f"✅ {file_name} wurde erfolgreich hochgeladen! Der Index wird jetzt aktualisiert...")
-    update_index()
-    st.success("🤖 Wiski wurde erfolgreich aktualisiert!")
+    try:
+        container_client.upload_blob(file_name, file, overwrite=True)
+        st.success(f"✅ {file_name} wurde erfolgreich hochgeladen! Der Index wird jetzt aktualisiert...")
+        update_index()
+        st.success("🤖 Wiski wurde erfolgreich aktualisiert!")
+        st.rerun()  # Trigger a rerun to refresh the file list
+    except Exception as e:
+        st.error(f"❌ Fehler beim Hochladen von {file_name}: {e}")
 
 def delete_file(file_name):
     """Delete a file from Blob Storage and update the index."""
-    container_client.delete_blob(file_name)
-    st.success(f"❌ {file_name} wurde erfolgreich gelöscht! Wiski wird jetzt aktualisiert...")
-    update_index()
-    st.success("🤖 Wiski wurde erfolgreich aktualisiert!")
+    try:
+        container_client.delete_blob(file_name)
+        st.success(f"❌ {file_name} wurde erfolgreich gelöscht! Wiski wird jetzt aktualisiert...")
+        update_index()
+        st.success("🤖 Wiski wurde erfolgreich aktualisiert!")
+        st.rerun()  # Trigger a rerun to refresh the file list
+    except Exception as e:
+        st.error(f"❌ Fehler beim Löschen von {file_name}: {e}")
 
 # Main Application
 st.title("🤖 Wiski-Datenverwaltung")
