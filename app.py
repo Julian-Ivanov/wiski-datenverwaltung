@@ -14,12 +14,12 @@ def authenticate(username, password):
 # Initialize Authentication State
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
-if "selected_to_delete" not in st.session_state:
-    st.session_state.selected_to_delete = []
-if "selected_files" not in st.session_state:
-    st.session_state.selected_files = []
-if "upload_success" not in st.session_state:
-    st.session_state.upload_success = False
+
+# Initialize Feedback Messages
+if "upload_messages" not in st.session_state:
+    st.session_state["upload_messages"] = []
+if "delete_messages" not in st.session_state:
+    st.session_state["delete_messages"] = []
 
 # Show Login Screen if Not Authenticated
 if not st.session_state["authenticated"]:
@@ -48,13 +48,7 @@ def list_files_with_metadata():
     files = [{"name": blob.name, "last_modified": blob.last_modified} for blob in blobs]
     return files
 
-def upload_file_to_blob(file, file_name):
-    container_client.upload_blob(file_name, file, overwrite=True)
-
-def delete_file_from_blob(file_name):
-    container_client.delete_blob(file_name)
-    st.success(f"❌ {file_name} wurde erfolgreich gelöscht!")
-
+# Main Application
 st.title("🤖 Wiski-Datenverwaltung")
 st.markdown(
     """
@@ -63,6 +57,24 @@ st.markdown(
     """
 )
 
+# Display Success Messages After Rerun
+if st.session_state["upload_messages"]:
+    for message in st.session_state["upload_messages"]:
+        if message["type"] == "success":
+            st.success(message["text"])
+        elif message["type"] == "error":
+            st.error(message["text"])
+    st.session_state["upload_messages"] = []  # Clear messages after displaying
+
+if st.session_state["delete_messages"]:
+    for message in st.session_state["delete_messages"]:
+        if message["type"] == "success":
+            st.success(message["text"])
+        elif message["type"] == "error":
+            st.error(message["text"])
+    st.session_state["delete_messages"] = []  # Clear messages after displaying
+
+# Tabs for Better Organization
 tab1, tab2 = st.tabs(["📂 Aktuelle Dateien", "📤 Dateien hochladen"])
 
 with tab1:
@@ -118,32 +130,46 @@ with tab1:
     st.write(f"Hier siehst du alle Dateien, auf die Wiski aktuell Zugriff hat. Aktuell sind es **{total_files}** Dateien.")
 
     if files_with_metadata:
-        with st.form("file_selection_form"):
-            delete_button = st.form_submit_button("❌ Lösche ausgewählte Dateien")
+        selected_files = []
+        delete_button = st.button("❌ Lösche ausgewählte Dateien")
 
-            file_container = st.container()
+        for file in files_with_metadata:
+            col1, col2 = st.columns([6, 3])
+            selected = col1.checkbox(f"📄 {file['name']}", key=file["name"])
+            if selected:
+                selected_files.append(file["name"])
+            col2.write(f"🕒 {file['last_modified'].strftime('%d.%m.%Y %H:%M')}")
 
-            header_col1, header_col2, header_col3 = file_container.columns([1,6,3])
-            header_col1.markdown("**Auswahl**")
-            header_col2.markdown("**Dateiname**")
-            header_col3.markdown("**Zuletzt geändert**")
+        if delete_button:
+            if selected_files:
+                for file_name in selected_files:
+                    try:
+                        container_client.delete_blob(file_name)
+                        st.session_state["delete_messages"].append({
+                            "type": "success",
+                            "text": f"❌ {file_name} wurde erfolgreich gelöscht! Wiski wird jetzt aktualisiert..."
+                        })
+                    except Exception as e:
+                        st.session_state["delete_messages"].append({
+                            "type": "error",
+                            "text": f"❌ Fehler beim Löschen von {file_name}: {e}"
+                        })
+                if any(msg["type"] == "success" for msg in st.session_state["delete_messages"]):
+                    try:
+                        update_index()
+                        st.session_state["delete_messages"].append({
+                            "type": "success",
+                            "text": "🤖 Wiski wurde erfolgreich aktualisiert!"
+                        })
+                    except Exception as e:
+                        st.session_state["delete_messages"].append({
+                            "type": "error",
+                            "text": f"❌ Fehler beim Aktualisieren des Index: {e}"
+                        })
+                st.rerun()  # Trigger a rerun after all deletions
+            else:
+                st.warning("⚠️ Du hast keine Dateien ausgewählt.")
 
-            selected_files = []
-            for file in files_with_metadata:
-                col_check, col_name, col_date = file_container.columns([1,6,3])
-                selected = col_check.checkbox("Datei auswählen", key=file["name"], label_visibility="collapsed")
-                col_name.write(f"📄 {file['name']}")
-                col_date.write(f"🕒 {file['last_modified'].strftime('%d.%m.%Y %H:%M')}")
-
-                if selected:
-                    selected_files.append(file["name"])
-
-            if delete_button:
-                if selected_files:
-                    st.session_state.selected_to_delete = selected_files
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Du hast keine Dateien ausgewählt.")
     else:
         st.write("🚫 Es sind keine Dateien im Datenordner vorhanden.")
 
@@ -157,18 +183,37 @@ with tab2:
         type=["pdf", "txt", "docx", "pptx", "xlsx", "png", "json", "html", "xml"], 
         accept_multiple_files=True
     )
+    if st.button("📤 Dateien hochladen") and uploaded_files:
+        upload_errors = []
+        upload_successes = []
+        for uploaded_file in uploaded_files:
+            try:
+                container_client.upload_blob(uploaded_file.name, uploaded_file, overwrite=True)
+                upload_successes.append(f"✅ {uploaded_file.name} wurde erfolgreich hochgeladen!")
+            except Exception as e:
+                upload_errors.append(f"❌ Fehler beim Hochladen von {uploaded_file.name}: {e}")
 
-    if selected_files:
-        st.session_state.selected_files = selected_files
+        # Update the index if at least one upload was successful
+        if upload_successes:
+            try:
+                update_index()
+                upload_successes.append("🤖 Wiski wurde erfolgreich aktualisiert!")
+            except Exception as e:
+                upload_errors.append(f"❌ Fehler beim Aktualisieren des Index: {e}")
 
-    if st.session_state.selected_files:
-        st.write("### Ausgewählte Dateien:")
-        for uploaded_file in st.session_state.selected_files:
-            st.write(f"📄 {uploaded_file.name}")
+        # Store messages in session_state
+        for msg in upload_successes:
+            st.session_state["upload_messages"].append({
+                "type": "success",
+                "text": msg
+            })
+        for msg in upload_errors:
+            st.session_state["upload_messages"].append({
+                "type": "error",
+                "text": msg
+            })
 
-        if st.button("📤 Hochladen"):
-            with st.spinner("Dateien werden hochgeladen..."):
-                for uploaded_file in st.session_state.selected_files:
-                    upload_file_to_blob(uploaded_file, uploaded_file.name)
-            st.session_state.selected_files = []
-            top_message_placeholder.success("Die Dateien wurden erfolgreich hochgeladen! Wiski wird in ca. 5 Minuten aktualisiert.")
+        st.rerun()  # Trigger a single rerun after all uploads
+
+    st.markdown("---")
+    st.write("Nachdem die Dateien hochgeladen wurden, findest du sie im Tab **📂 Aktuelle Dateien**.")
